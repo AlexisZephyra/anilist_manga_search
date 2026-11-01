@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AniList Manga Search</title>
+<style>
+  :root {
+    --bg: #0b1622;
+    --panel: #151f2e;
+    --panel-2: #1c2a3a;
+    --text: #d3d5d7;
+    --text-dim: #8a94a4;
+    --accent: #3db4f2;
+    --border: #233247;
+    --danger: #f7768e;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { margin: 0 0 16px; font-size: 18px; font-weight: 600; color: var(--accent); }
+  .auth-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  #login-status { font-size: 13px; color: var(--text-dim); }
+  #login-status.ok { color: #a6e3a1; }
+  form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  input, select, button {
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input[type="number"] { width: 90px; }
+  input[type="text"] { width: 180px; }
+  button { cursor: pointer; }
+  .primary {
+    background: var(--accent);
+    color: #0b1622;
+    border: none;
+    font-weight: 600;
+    padding: 9px 18px;
+    transition: opacity .15s;
+  }
+  .primary:hover:not(:disabled) { opacity: 0.9; }
+  .primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: 6px;
+  }
+  .secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .checkbox-label {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding-bottom: 9px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .checkbox-label input { width: auto; }
+  .checkbox-label.disabled { opacity: 0.5; cursor: not-allowed; }
+  .size-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .size-btn {
+    background: var(--bg);
+    border: none;
+    border-radius: 0;
+    padding: 8px 14px;
+    color: var(--text-dim);
+    font-weight: 600;
+    border-right: 1px solid var(--border);
+  }
+  .size-btn:last-child { border-right: none; }
+  .size-btn.active { background: var(--accent); color: #0b1622; }
+
+  .dropdown { position: relative; }
+  .dropdown-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    min-width: 170px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .dropdown-toggle:hover { border-color: var(--accent); }
+  .dropdown-toggle .caret { font-size: 10px; color: var(--text-dim); transition: transform .15s; }
+  .dropdown.open .dropdown-toggle { border-color: var(--accent); }
+  .dropdown.open .dropdown-toggle .caret { transform: rotate(180deg); }
+  .dropdown-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 100%;
+    max-height: 340px;
+    overflow-y: auto;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px;
+    z-index: 50;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .dropdown.open .dropdown-panel { display: block; }
+  .dropdown-search {
+    width: 100%;
+    margin-bottom: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    border-radius: 5px;
+  }
+  .dropdown-list { display: flex; flex-direction: column; gap: 1px; }
+
+  .dropdown-item {
+    position: relative;
+    display: block;
+    padding: 6px 10px 6px 30px;
+    border-radius: 5px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    color: var(--text);
+    transition: background .1s, color .1s;
+  }
+  .dropdown-item input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    pointer-events: none;
+  }
+  .dropdown-item::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    border: 1.5px solid var(--border);
+    border-radius: 3px;
+    background: transparent;
+    transition: background .12s, border-color .12s;
+  }
+  .dropdown-item:hover:not(.is-selected) { background: var(--panel); }
+  .dropdown-item:hover:not(.is-selected)::before { border-color: var(--text-dim); }
+  .dropdown-item.is-selected { background: rgba(61, 180, 242, 0.12); color: var(--accent); }
+  .dropdown-item.is-selected::before { background: var(--accent); border-color: var(--accent); }
+  .dropdown-item.is-selected::after {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7.5l2.5 2.5L11 4' stroke='%230b1622' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 11px no-repeat;
+    pointer-events: none;
+  }
+  .tag-group-title {
+    padding: 8px 8px 3px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-dim);
+    font-weight: 700;
+  }
+  .dropdown-empty { padding: 10px; text-align: center; font-size: 12px; color: var(--text-dim); }
+
+  main { padding: 20px; max-width: 2000px; margin: 0 auto; }
+  #summary {
+    margin-bottom: 12px;
+    color: var(--text-dim);
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-height: 1.5em;
+  }
+  #export-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+  #export-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  #export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #results { display: grid; gap: 14px; }
+  #results.size-s { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  #results.size-m { grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); }
+  #results.size-l { grid-template-columns: repeat(auto-fill, minmax(660px, 1fr)); }
+
+  .card { position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); transition: background .15s, transform .1s; }
+  .card:hover { background: var(--panel-2); transform: translateY(-1px); }
+  .card-main { display: flex; gap: 14px; padding: 12px; text-decoration: none; color: inherit; width: 100%; height: 100%; }
+  .card img { object-fit: cover; border-radius: 6px; flex-shrink: 0; background: var(--bg); }
+  #results.size-s .card img { width: 100px; height: 140px; }
+  #results.size-m .card img { width: 140px; height: 196px; }
+  #results.size-l .card img { width: 240px; height: 336px; }
+
+  .card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding-right: 30px; }
+  .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  #results.size-l .title { font-size: 17px; }
+  #results.size-m .title { font-size: 15px; }
+  .subtitle { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #results.size-l .subtitle { font-size: 13px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-dim); }
+  #results.size-l .meta { font-size: 13px; }
+  .meta:first-of-type { margin-top: auto; }
+  .meta span { white-space: nowrap; }
+  #results.size-s .meta + .meta { display: none; }
+  .score { color: #e0af68; }
+
+  .info-btn {
+    position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text-dim);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .15s, background .15s; z-index: 2; font-size: 13px; font-weight: 700; padding: 0; line-height: 1;
+  }
+  .card:hover .info-btn { opacity: 1; }
+  .info-btn:hover { background: var(--accent); color: #0b1622; border-color: var(--accent); }
+
+  #load-more { display: block; margin: 20px auto; padding: 10px 24px; }
+  #load-more[hidden] { display: none; }
+  .loading, .empty, .error { grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-dim); }
+  .error { color: var(--danger); }
+
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.8); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  .modal[hidden] { display: none; }
+  .modal-content { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); max-width: 900px; width: 100%; max-height: 90vh; display: flex; gap: 24px; padding: 24px; position: relative; overflow-y: auto; }
+  .modal-content img { width: 260px; height: auto; border-radius: 8px; flex-shrink: 0; align-self: flex-start; background: var(--bg); }
+  .modal-body { flex: 1; min-width: 0; }
+  .modal-body h2 { margin: 0 0 4px; font-size: 22px; font-weight: 600; }
+  .modal-alt-title { font-size: 14px; color: var(--text-dim); margin-bottom: 12px; }
+  #modal-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; color: var(--text-dim); margin-bottom: 12px; }
+  #modal-meta span { white-space: nowrap; }
+  .modal-genres { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin-top: 4px; }
+  .genre-pill { background: var(--panel-2); border: 1px solid var(--border); color: var(--text-dim); padding: 2px 10px; border-radius: 999px; font-size: 12px; }
+  #modal-desc { white-space: pre-wrap; line-height: 1.6; font-size: 14px; color: var(--text); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  #modal-desc:empty { display: none; }
+  .modal-close { position: absolute; top: 10px; right: 10px; background: transparent; border: none; font-size: 28px; line-height: 1; cursor: pointer; color: var(--text-dim); padding: 4px 12px; }
+  .modal-close:hover { color: var(--text); }
+
+  @media (max-width: 720px) {
+    .modal-content { flex-direction: column; align-items: center; }
+    .modal-content img { width: 180px; }
+    .dropdown-panel { position: fixed; left: 10px; right: 10px; top: auto; min-width: 0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>AniList Manga Search</h1>
+
+  <div class="auth-row">
+    <button type="button" id="login-btn" class="secondary">Login with AniList</button>
+    <button type="button" id="logout-btn" class="secondary" hidden>Logout</button>
+    <span id="login-status">Not logged in</span>
+  </div>
+
+  <form id="search-form">
+    <label>End year
+      <input id="year" type="number" value="2026" min="1900" max="2100">
+    </label>
+
+    <label>Genres
+      <div class="dropdown" id="genre-dropdown">
+        <button type="button" class="dropdown-toggle" id="genre-toggle">
+          <span id="genre-label">Any</span>
+          <span class="caret">▼</span>
+        </button>
+        <div class="dropdown-panel">
+          <input type="text" class="dropdown-search" id="genre-search" placeholder="Filter genres…">
+          <div class="dropdown-list" id="genre-list">
+            <div class="dropdown-empty">Loading genres…</div>
+          </div>
+        </div>
+      </div>
+    </label>
+
+    <label>Tags
+      <div class="dropdown" id="tag-dropdown">
+        <button type="button" class="dropdown-toggle" id="tag-toggle">
+          <span id="tag-label">Boys' Love</span>
+          <span class="caret">▼</span>
+        </button>
+        <div class="dropdown-panel">
+          <input type="text" class="dropdown-search" id="tag-search" placeholder="Filter tags…">
+          <div class="dropdown-list" id="tag-list">
+            <div class="dropdown-empty">Loading tags…</div>
+          </div>
+        </div>
+      </div>
+    </label>
+
+    <label>Country
+      <select id="country">
+        <option value="">Any</option>
+        <option value="JP">Japan</option>
+        <option value="KR">South Korea</option>
+        <option value="CN">China</option>
+        <option value="TW">Taiwan</option>
+      </select>
+    </label>
+
+    <label>Status
+      <select id="status">
+        <option value="FINISHED" selected>Finished</option>
+        <option value="RELEASING">Releasing</option>
+        <option value="">Any</option>
+      </select>
+    </label>
+
+    <label>Format
+      <select id="format">
+        <option value="">Any</option>
+        <option value="MANGA">Manga</option>
+        <option value="NOVEL">Novel</option>
+        <option value="ONE_SHOT">One-shot</option>
+      </select>
+    </label>
+
+    <label>Sort
+      <select id="sort">
+        <option value="POPULARITY_DESC" selected>Popularity</option>
+        <option value="END_DATE_DESC">End date (newest)</option>
+        <option value="END_DATE">End date (oldest)</option>
+        <option value="SCORE_DESC">Score</option>
+        <option value="FAVOURITES_DESC">Favourites</option>
+        <option value="TRENDING_DESC">Trending</option>
+        <option value="TITLE_ROMAJI">Title (A–Z)</option>
+      </select>
+    </label>
+
+    <label class="checkbox-label">
+      <input id="exclude-adult" type="checkbox">
+      Exclude adult
+    </label>
+
+    <label class="checkbox-label" id="hide-on-list-label">
+      <input id="hide-on-list" type="checkbox" disabled>
+      Hide entries on my lists
+    </label>
+
+    <label>Cover size
+      <div class="size-toggle">
+        <button type="button" class="size-btn" data-size="s">S</button>
+        <button type="button" class="size-btn active" data-size="m">M</button>
+        <button type="button" class="size-btn" data-size="l">L</button>
+      </div>
+    </label>
+
+    <button type="submit" id="search-btn" class="primary">Search</button>
+  </form>
+</header>
+
+<main>
+  <div id="summary">
+    <span id="summary-text"></span>
+    <button id="export-btn" disabled title="Download current results as CSV">Export CSV</button>
+  </div>
+  <div id="results" class="size-m"></div>
+  <button id="load-more" class="primary" hidden>Load more</button>
+</main>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-content" id="modal-content">
+    <button class="modal-close" id="modal-close" aria-label="Close">×</button>
+    <img id="modal-cover" alt="">
+    <div class="modal-body">
+      <h2 id="modal-title"></h2>
+      <div id="modal-meta"></div>
+      <div id="modal-desc"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ============================================================================
+  // ⚙️  CONFIGURATION
+  // ----------------------------------------------------------------------------
+  // Replace 'YOUR_CLIENT_ID' with the Client ID of your AniList application.
+  // Create one at: https://anilist.co/settings/developer
+  // If left as the placeholder, the app will prompt you for it on first login
+  // and cache it in localStorage.
+  // ============================================================================
+  const CONFIG = {
+    CLIENT_ID: 'YOUR_CLIENT_ID',
+  };
+
+  // ============================================================================
+  // 🔑  AUTH
+  // ============================================================================
+  const TOKEN_KEY  = 'anilist_token';
+  const EXPIRY_KEY = 'anilist_token_expiry';
+  const CID_KEY    = 'anilist_client_id';
+
+  const REDIRECT_URI = window.location.origin +
+                       window.location.pathname.replace(/index\.html$/, '');
+
+  function getClientId() {
+    if (CONFIG.CLIENT_ID && CONFIG.CLIENT_ID !== 'YOUR_CLIENT_ID') return CONFIG.CLIENT_ID;
+    let id = localStorage.getItem(CID_KEY);
+    if (!id) {
+      id = prompt(
+        'First-time setup: enter your AniList Client ID.\n' +
+        'Get one at https://anilist.co/settings/developer'
+      );
+      if (id) {
+        id = id.trim();
+        localStorage.setItem(CID_KEY, id);
+      }
+    }
+    return id || null;
+  }
+
+  function getStoredToken() {
+    const token  = localStorage.getItem(TOKEN_KEY);
+    const expiry = parseInt(localStorage.getItem(EXPIRY_KEY) || '0', 10);
+    if (!token) return null;
+    if (expiry && Date.now() > expiry) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(EXPIRY_KEY);
+      return null;
+    }
+    return token;
+  }
+
+  function saveToken(token, expiresInSeconds) {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(EXPIRY_KEY, String(Date.now() + expiresInSeconds * 1000));
+  }
+
+  function clearToken() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(EXPIRY_KEY);
+  }
+
+  // Handle OAuth callback BEFORE any other hash parsing
+  function handleOAuthCallback() {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash || !hash.includes('access_token=')) return false;
+
+    const params    = new URLSearchParams(hash);
+    const token     = params.get('access_token');
+    const expiresIn = parseInt(params.get('expires_in') || '31536000', 10);
+
+    if (token) {
+      saveToken(token, expiresIn);
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+
+      // Restore any search state saved before redirect
+      const pending = sessionStorage.getItem('anilist_pending_state');
+      if (pending) {
+        sessionStorage.removeItem('anilist_pending_state');
+        try { pendingState = JSON.parse(pending); } catch (_) {}
+      }
+      return true;
+    }
+    return false;
+  }
+
+  let pendingState = null;
+  let accessToken  = null;
+
+  // ============================================================================
+  // DOM refs
+  // ============================================================================
+  const form           = document.getElementById('search-form');
+  const results        = document.getElementById('results');
+  const summaryText    = document.getElementById('summary-text');
+  const loadMoreBtn    = document.getElementById('load-more');
+  const searchBtn      = document.getElementById('search-btn');
+  const exportBtn      = document.getElementById('export-btn');
+  const modal          = document.getElementById('modal');
+  const modalClose     = document.getElementById('modal-close');
+  const loginBtn       = document.getElementById('login-btn');
+  const logoutBtn      = document.getElementById('logout-btn');
+  const loginStatus    = document.getElementById('login-status');
+  const hideOnListCb   = document.getElementById('hide-on-list');
+
+  const COUNTRY_NAMES = { JP: 'Japan', KR: 'South Korea', CN: 'China', TW: 'Taiwan' };
+
+  let currentSize = 'm';
+  const state = { loading: false, page: 1, hasNext: false, params: null, total: 0, results: [] };
+
+  // ============================================================================
+  // AUTH UI
+  // ============================================================================
+  function refreshAuthUI() {
+    accessToken = getStoredToken();
+    if (accessToken) {
+      loginBtn.hidden  = true;
+      logoutBtn.hidden = false;
+      loginStatus.textContent = 'Logged in';
+      loginStatus.className   = 'ok';
+      hideOnListCb.disabled   = false;
+      document.getElementById('hide-on-list-label').classList.remove('disabled');
+    } else {
+      loginBtn.hidden  = false;
+      logoutBtn.hidden = true;
+      loginStatus.textContent = 'Not logged in';
+      loginStatus.className   = '';
+      hideOnListCb.disabled   = true;
+      hideOnListCb.checked    = false;
+      document.getElementById('hide-on-list-label').classList.add('disabled');
+    }
+  }
+
+  loginBtn.addEventListener('click', () => {
+    const clientId = getClientId();
+    if (!clientId) {
+      alert('A Client ID is required to log in. Create an AniList app first.');
+      return;
+    }
+    // Save the current form state so we can restore it after redirect
+    sessionStorage.setItem('anilist_pending_state', JSON.stringify(readParams()));
+    const url = `https://anilist.co/api/v2/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=token`;
+    window.location.href = url;
+  });
+
+  logoutBtn.addEventListener('click', () => {
+    clearToken();
+    refreshAuthUI();
+    runSearch(true);
+  });
+
+  // ============================================================================
+  // REFERENCE DATA (genres + tags)
+  // ============================================================================
+  const genreData = [];
+  const tagData   = [];
+
+  async function loadReferenceData() {
+    const query = `query { GenreCollection MediaTagCollection { name category isAdult } }`;
+    try {
+      const res = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+      if (data.errors) throw new Error(data.errors.map(e => e.message).join('; '));
+
+      genreData.length = 0;
+      genreData.push(...data.data.GenreCollection.slice().sort((a, b) => a.localeCompare(b)));
+
+      tagData.length = 0;
+      data.data.MediaTagCollection
+        .filter(t => !t.isAdult)
+        .sort((a, b) => (a.category + a.name).localeCompare(b.category + b.name))
+        .forEach(t => tagData.push({ name: t.name, category: t.category }));
+
+      renderGenreList('');
+      renderTagList('');
+    } catch (err) {
+      console.error('Failed to load reference data:', err);
+      document.getElementById('genre-list').innerHTML =
+        '<div class="dropdown-empty error">Could not load genres</div>';
+      document.getElementById('tag-list').innerHTML =
+        '<div class="dropdown-empty error">Could not load tags</div>';
+    }
+  }
+
+  function renderGenreList(filter) {
+    const list = document.getElementById('genre-list');
+    const q = filter.toLowerCase();
+    const matches = genreData.filter(g => g.toLowerCase().includes(q));
+    if (!matches.length) {
+      list.innerHTML = '<div class="dropdown-empty">No genres match</div>';
+      return;
+    }
+    list.innerHTML = matches.map(g => {
+      const id = 'genre-' + g.replace(/\W+/g, '_');
+      const isSel = selectedGenres.has(g);
+      const checked = isSel ? ' checked' : '';
+      const cls = isSel ? ' is-selected' : '';
+      return `<label class="dropdown-item${cls}" for="${id}">
+        <input type="checkbox" id="${id}" value="${escapeHtml(g)}"${checked}>
+        <span>${escapeHtml(g)}</span>
+      </label>`;
+    }).join('');
+    list.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const label = cb.closest('.dropdown-item');
+        if (cb.checked) { selectedGenres.add(cb.value); label.classList.add('is-selected'); }
+        else            { selectedGenres.delete(cb.value); label.classList.remove('is-selected'); }
+        updateMultiLabel('genre', selectedGenres, 'genre-label');
+      });
+    });
+  }
+
+  function renderTagList(filter) {
+    const list = document.getElementById('tag-list');
+    const q = filter.toLowerCase();
+    const matches = tagData.filter(t => t.name.toLowerCase().includes(q));
+    if (!matches.length) {
+      list.innerHTML = '<div class="dropdown-empty">No tags match</div>';
+      return;
+    }
+    const groups = new Map();
+    matches.forEach(t => {
+      if (!groups.has(t.category)) groups.set(t.category, []);
+      groups.get(t.category).push(t.name);
+    });
+    let html = '';
+    for (const [category, names] of groups) {
+      html += `<div class="tag-group-title">${escapeHtml(category)}</div>`;
+      html += names.map(name => {
+        const id = 'tag-' + name.replace(/\W+/g, '_');
+        const isSel = selectedTags.has(name);
+        const checked = isSel ? ' checked' : '';
+        const cls = isSel ? ' is-selected' : '';
+        return `<label class="dropdown-item${cls}" for="${id}">
+          <input type="checkbox" id="${id}" value="${escapeHtml(name)}"${checked}>
+          <span>${escapeHtml(name)}</span>
+        </label>`;
+      }).join('');
+    }
+    list.innerHTML = html;
+    list.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const label = cb.closest('.dropdown-item');
+        if (cb.checked) { selectedTags.add(cb.value); label.classList.add('is-selected'); }
+        else            { selectedTags.delete(cb.value); label.classList.remove('is-selected'); }
+        updateMultiLabel('tag', selectedTags, 'tag-label');
+      });
+    });
+  }
+
+  const selectedGenres = new Set();
+  const selectedTags   = new Set(["Boys' Love"]);
+
+  function updateMultiLabel(kind, set, labelId) {
+    const label = document.getElementById(labelId);
+    if (set.size === 0)        label.textContent = 'Any';
+    else if (set.size === 1)   label.textContent = [...set][0];
+    else                       label.textContent = `${set.size} ${kind}s selected`;
+  }
+
+  function setupDropdown(dropdownId, toggleId, searchId, renderFn) {
+    const dropdown = document.getElementById(dropdownId);
+    const toggle   = document.getElementById(toggleId);
+    const search   = document.getElementById(searchId);
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wasOpen = dropdown.classList.contains('open');
+      closeAllDropdowns();
+      if (!wasOpen) {
+        dropdown.classList.add('open');
+        search.value = '';
+        renderFn('');
+        search.focus();
+      }
+    });
+    search.addEventListener('input', () => renderFn(search.value));
+    dropdown.querySelector('.dropdown-panel').addEventListener('click', e => e.stopPropagation());
+  }
+
+  function closeAllDropdowns() {
+    document.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
+  }
+  document.addEventListener('click', closeAllDropdowns);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllDropdowns(); });
+
+  setupDropdown('genre-dropdown', 'genre-toggle', 'genre-search', renderGenreList);
+  setupDropdown('tag-dropdown',   'tag-toggle',   'tag-search',   renderTagList);
+
+  // ============================================================================
+  // COVER SIZE
+  // ============================================================================
+  function setSize(s) {
+    currentSize = s;
+    results.className = 'size-' + s;
+    document.querySelectorAll('.size-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.size === s)
+    );
+    if (state.params) { state.params.size = s; syncHash(state.params); }
+  }
+  document.querySelectorAll('.size-btn').forEach(b =>
+    b.addEventListener('click', () => setSize(b.dataset.size))
+  );
+
+  // ============================================================================
+  // URL HASH
+  // ============================================================================
+  function syncHash(p) {
+    const parts = ['year=' + p.year];
+    if (p.tags.length)    parts.push('tags=' + encodeURIComponent(p.tags.join(',')));
+    if (p.genres.length)  parts.push('genres=' + encodeURIComponent(p.genres.join(',')));
+    if (p.country)        parts.push('country=' + p.country);
+    if (p.status)         parts.push('status=' + p.status);
+    if (p.format)         parts.push('format=' + p.format);
+    parts.push('sort=' + p.sort);
+    parts.push('size=' + p.size);
+    if (p.excludeAdult)   parts.push('excludeAdult=1');
+    if (p.hideOnList)     parts.push('hideOnList=1');
+    history.replaceState(null, '', '#' + parts.join('&'));
+  }
+
+  function readHash() {
+    const raw = location.hash.replace(/^#/, '');
+    if (!raw) return null;
+    const out = {};
+    raw.split('&').forEach(kv => {
+      const i = kv.indexOf('=');
+      out[i === -1 ? kv : kv.slice(0, i)] = i === -1 ? '' : decodeURIComponent(kv.slice(i + 1));
+    });
+    return out;
+  }
+
+  function applyHashToForm(h) {
+    if (!h) return;
+    if (h.year) document.getElementById('year').value = h.year;
+    if (h.tags !== undefined) {
+      selectedTags.clear();
+      h.tags.split(',').filter(Boolean).forEach(t => selectedTags.add(t.trim()));
+    }
+    if (h.genres !== undefined) {
+      selectedGenres.clear();
+      h.genres.split(',').filter(Boolean).forEach(g => selectedGenres.add(g.trim()));
+    }
+    if (h.country !== undefined) document.getElementById('country').value = h.country;
+    if (h.status !== undefined)  document.getElementById('status').value = h.status;
+    if (h.format !== undefined)  document.getElementById('format').value = h.format;
+    if (h.sort)                  document.getElementById('sort').value = h.sort;
+    if (h.size && ['s','m','l'].includes(h.size)) setSize(h.size);
+    if (h.excludeAdult !== undefined)
+      document.getElementById('exclude-adult').checked = h.excludeAdult === '1';
+    if (h.hideOnList === '1' && accessToken)
+      hideOnListCb.checked = true;
+  }
+
+  // ============================================================================
+  // PARAMS
+  // ============================================================================
+  function readParams() {
+    let year = parseInt(document.getElementById('year').value, 10);
+    if (!Number.isFinite(year) || year < 1900 || year > 2100) year = new Date().getFullYear();
+    return {
+      year,
+      tags:        [...selectedTags],
+      genres:      [...selectedGenres],
+      country:     document.getElementById('country').value || null,
+      status:      document.getElementById('status').value || null,
+      format:      document.getElementById('format').value || null,
+      sort:        document.getElementById('sort').value || 'POPULARITY_DESC',
+      excludeAdult: document.getElementById('exclude-adult').checked,
+      hideOnList:   hideOnListCb.checked && !!accessToken,
+      size:         currentSize,
+    };
+  }
+
+  function applySavedParams(p) {
+    if (p.year) document.getElementById('year').value = p.year;
+    selectedTags.clear();   (p.tags || []).forEach(t => selectedTags.add(t));
+    selectedGenres.clear(); (p.genres || []).forEach(g => selectedGenres.add(g));
+    if (p.country != null) document.getElementById('country').value = p.country;
+    if (p.status  != null) document.getElementById('status').value  = p.status;
+    if (p.format  != null) document.getElementById('format').value  = p.format;
+    if (p.sort)            document.getElementById('sort').value    = p.sort;
+    if (p.size)            setSize(p.size);
+    document.getElementById('exclude-adult').checked = !!p.excludeAdult;
+    if (p.hideOnList && accessToken) hideOnListCb.checked = true;
+  }
+
+  // ============================================================================
+  // SEARCH
+  // ============================================================================
+  form.addEventListener('submit', e => { e.preventDefault(); runSearch(true); });
+  loadMoreBtn.addEventListener('click', () => runSearch(false));
+
+  async function runSearch(reset) {
+    if (state.loading) return;
+    if (reset) {
+      state.params = readParams();
+      state.page = 1;
+      state.total = 0;
+      state.results = [];
+      results.innerHTML = '<div class="loading">Searching…</div>';
+      summaryText.textContent = '';
+      loadMoreBtn.hidden = true;
+      exportBtn.disabled = true;
+      syncHash(state.params);
+    }
+    const p = state.params;
+    const greater = (p.year - 1) * 10000 + 1231;
+    const lesser  = (p.year + 1) * 10000 + 101;
+
+    const args = ['type: MANGA'];
+    const vars = { page: state.page, sort: [p.sort] };
+
+    if (p.status)         { args.push('status: $status');           vars.status  = p.status; }
+    if (p.format)         { args.push('format: ' + p.format); }
+    if (p.tags.length)    { args.push('tag_in: $tags');              vars.tags    = p.tags; }
+    if (p.genres.length)  { args.push('genre_in: $genres');          vars.genres  = p.genres; }
+    if (p.country)        { args.push('countryOfOrigin: $country');  vars.country = p.country; }
+    if (p.excludeAdult)   { args.push('isAdult: false'); }
+    if (p.hideOnList && accessToken) { args.push('onList: false'); }
+    args.push(`endDate_greater: ${greater}`);
+    args.push(`endDate_lesser: ${lesser}`);
+    args.push('sort: $sort');
+
+    const varDefs = ['$page: Int', '$sort: [MediaSort]'];
+    if (vars.status)  varDefs.push('$status: MediaStatus');
+    if (vars.tags)    varDefs.push('$tags: [String]');
+    if (vars.genres)  varDefs.push('$genres: [String]');
+    if (vars.country) varDefs.push('$country: CountryCode');
+
+    const query = `
+      query (${varDefs.join(', ')}) {
+        Page(page: $page, perPage: 50) {
+          pageInfo { hasNextPage }
+          media(${args.join(' ')}) {
+            id
+            title { romaji english }
+            coverImage { extraLarge large }
+            description(asHtml: false)
+            format
+            status
+            chapters
+            popularity
+            averageScore
+            favourites
+            genres
+            countryOfOrigin
+            endDate { year month day }
+            siteUrl
+          }
+        }
+      }
+    `;
+
+    state.loading = true;
+    searchBtn.disabled = true;
+    loadMoreBtn.disabled = true;
+    loadMoreBtn.textContent = 'Loading…';
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+      const res = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query, variables: vars }),
+      });
+
+      if (res.status === 429) {
+        const wait = Number(res.headers.get('Retry-After') || 30);
+        summaryText.textContent = `Rate limited by AniList. Retrying in ${wait}s…`;
+        await new Promise(r => setTimeout(r, wait * 1000));
+        state.loading = false;
+        searchBtn.disabled = false;
+        loadMoreBtn.disabled = false;
+        return runSearch(reset);
+      }
+
+      const data = await res.json();
+      if (data.errors) throw new Error(data.errors.map(e => e.message).join('; '));
+
+      const page = data.data.Page;
+      state.hasNext = page.pageInfo.hasNextPage;
+
+      if (reset) results.innerHTML = '';
+
+      if (page.media.length === 0 && reset) {
+        results.innerHTML = '<div class="empty">No results found. Try removing filters.</div>';
+        summaryText.textContent = '';
+      } else {
+        page.media.forEach(m => {
+          results.appendChild(makeCard(m));
+          state.results.push(m);
+        });
+        state.total += page.media.length;
+        summaryText.textContent = `Showing ${state.total} result${state.total === 1 ? '' : 's'}`;
+        exportBtn.disabled = false;
+      }
+
+      state.page += 1;
+      loadMoreBtn.hidden = !state.hasNext;
+    } catch (err) {
+      console.error(err);
+      if (reset) results.innerHTML = `<div class="error">Error: ${escapeHtml(err.message)}</div>`;
+      else summaryText.textContent = `Error: ${err.message}`;
+      loadMoreBtn.hidden = true;
+    } finally {
+      state.loading = false;
+      searchBtn.disabled = false;
+      loadMoreBtn.disabled = false;
+      loadMoreBtn.textContent = 'Load more';
+    }
+  }
+
+  // ============================================================================
+  // CARD RENDERING
+  // ============================================================================
+  function makeCard(m) {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const link = document.createElement('a');
+    link.className = 'card-main';
+    link.href = m.siteUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+
+    const img = document.createElement('img');
+    img.src = (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || '';
+    img.alt = '';
+    img.loading = 'lazy';
+
+    const title = m.title.english || m.title.romaji || 'Unknown title';
+    const showRomaji = m.title.english && m.title.romaji && m.title.english !== m.title.romaji;
+    const e = m.endDate || {};
+    const endStr = e.year
+      ? `${e.year}-${String(e.month || 1).padStart(2, '0')}-${String(e.day || 1).padStart(2, '0')}`
+      : 'Unknown';
+
+    const meta1 = [
+      m.format ? `<span>${escapeHtml(m.format)}</span>` : '',
+      m.chapters ? `<span>${m.chapters} ch</span>` : '',
+      m.averageScore ? `<span class="score">★ ${m.averageScore}%</span>` : '',
+    ].join('');
+    const meta2 = [
+      `<span>Ended ${endStr}</span>`,
+      m.countryOfOrigin ? `<span>${COUNTRY_NAMES[m.countryOfOrigin] || m.countryOfOrigin}</span>` : '',
+      `<span>${(m.popularity || 0).toLocaleString()} users</span>`,
+    ].join('');
+
+    const body = document.createElement('div');
+    body.className = 'card-body';
+    body.innerHTML = `
+      <div class="title">${escapeHtml(title)}</div>
+      ${showRomaji ? `<div class="subtitle">${escapeHtml(m.title.romaji)}</div>` : ''}
+      <div class="meta">${meta1}</div>
+      <div class="meta">${meta2}</div>
+    `;
+
+    link.appendChild(img);
+    link.appendChild(body);
+
+    const descPreview = (m.description || '').replace(/\s+/g, ' ').trim();
+    if (descPreview) {
+      link.title = descPreview.length > 180 ? descPreview.slice(0, 180) + '…' : descPreview;
+    }
+
+    const infoBtn = document.createElement('button');
+    infoBtn.type = 'button';
+    infoBtn.className = 'info-btn';
+    infoBtn.textContent = 'i';
+    infoBtn.title = 'Show details';
+    infoBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openModal(m);
+    });
+
+    card.appendChild(link);
+    card.appendChild(infoBtn);
+    return card;
+  }
+
+  // ============================================================================
+  // MODAL
+  // ============================================================================
+  function openModal(m) {
+    document.getElementById('modal-cover').src =
+      (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || '';
+    document.getElementById('modal-cover').alt = '';
+
+    const mainTitle = m.title.english || m.title.romaji || 'Unknown title';
+    const altTitle = m.title.english && m.title.romaji && m.title.english !== m.title.romaji
+      ? `<div class="modal-alt-title">${escapeHtml(m.title.romaji)}</div>` : '';
+    document.getElementById('modal-title').innerHTML = escapeHtml(mainTitle) + altTitle;
+
+    const e = m.endDate || {};
+    const endStr = e.year
+      ? `${e.year}-${String(e.month || 1).padStart(2, '0')}-${String(e.day || 1).padStart(2, '0')}`
+      : 'Unknown';
+
+    const metaParts = [
+      m.format ? `<span>${escapeHtml(m.format)}</span>` : '',
+      m.chapters ? `<span>${m.chapters} chapters</span>` : '',
+      m.status ? `<span>${escapeHtml(m.status)}</span>` : '',
+      m.averageScore ? `<span class="score">★ ${m.averageScore}%</span>` : '',
+      `<span>${(m.popularity || 0).toLocaleString()} users</span>`,
+      m.favourites ? `<span>${m.favourites.toLocaleString()} favourites</span>` : '',
+      `<span>Ended ${endStr}</span>`,
+      m.countryOfOrigin ? `<span>${COUNTRY_NAMES[m.countryOfOrigin] || m.countryOfOrigin}</span>` : '',
+    ].filter(Boolean);
+
+    let metaHtml = metaParts.join('');
+    if (m.genres && m.genres.length) {
+      metaHtml += `<div class="modal-genres">${m.genres.map(g =>
+        `<span class="genre-pill">${escapeHtml(g)}</span>`).join('')}</div>`;
+    }
+    document.getElementById('modal-meta').innerHTML = metaHtml;
+    document.getElementById('modal-desc').textContent = m.description || '';
+
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    modal.hidden = true;
+    document.body.style.overflow = '';
+  }
+  modalClose.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.hidden) closeModal();
+  });
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+
+  // ============================================================================
+  // CSV EXPORT
+  // ============================================================================
+  exportBtn.addEventListener('click', () => {
+    if (!state.results.length) return;
+    const rows = [['id','title_romaji','title_english','format','status','country','chapters','score','popularity','favourites','end_year','end_month','end_day','genres','url']];
+    state.results.forEach(m => {
+      const e = m.endDate || {};
+      rows.push([
+        m.id, csvEscape(m.title.romaji || ''), csvEscape(m.title.english || ''),
+        m.format || '', m.status || '', m.countryOfOrigin || '', m.chapters ?? '',
+        m.averageScore ?? '', m.popularity ?? '', m.favourites ?? '',
+        e.year ?? '', e.month ?? '', e.day ?? '',
+        csvEscape((m.genres || []).join('; ')), m.siteUrl || '',
+      ]);
+    });
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `anilist-manga-${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+  function csvEscape(s) {
+    s = String(s);
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  // ============================================================================
+  // BOOT
+  // ============================================================================
+  (async () => {
+    handleOAuthCallback();      // must run BEFORE readHash()
+    refreshAuthUI();
+
+    if (pendingState) {
+      applySavedParams(pendingState);
+      pendingState = null;
+    } else {
+      const hash = readHash();
+      if (hash) applyHashToForm(hash);
+    }
+
+    await loadReferenceData();
+    updateMultiLabel('tag',   selectedTags,   'tag-label');
+    updateMultiLabel('genre', selectedGenres, 'genre-label');
+    setSize(currentSize);
+    runSearch(true);
+  })();
+})();
+</script>
+</body>
+</html>
